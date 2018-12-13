@@ -1,3 +1,4 @@
+from config import cfg
 from keras import layers, models
 from capsule_layers import CapsuleLayer, PrimaryCap, Length, Mask
 
@@ -15,25 +16,19 @@ def CapsNet(input_shape, n_class, num_routing, vocab_size, embed_dim, max_len):
     x = layers.Input(shape=input_shape)
     embed = layers.Embedding(vocab_size, embed_dim, input_length=max_len)(x)
 
-    conv1 = layers.Conv1D(filters=256, kernel_size=9, strides=1, padding='valid', activation='relu', name='conv1')(embed)
+    # Layer 1: Conv1D layer
+    conv = layers.Conv1D(filters=256, kernel_size=9, strides=1, padding='valid', activation='relu', name='conv1')(embed)
 
-    # Layer 2: Conv2D layer with `squash` activation, then reshape to [None, num_capsule, dim_vector]
-    primary_caps = PrimaryCap(conv1, dim_vector=8, n_channels=32, kernel_size=9, strides=2, padding='valid', name="primary_caps")
+    # Layer 2: Dropout regularization
+    dropout = layers.Dropout(cfg.regularization_dropout)(conv)
 
-    # Layer 3: Capsule layer. Routing algorithm works here.
+    # Layer 3: Primary layer with `squash` activation, then reshape to [None, num_capsule, dim_vector]
+    primary_caps = PrimaryCap(dropout, dim_vector=8, n_channels=32, kernel_size=9, strides=2, padding='valid', name="primary_caps")
+
+    # Layer 4: Capsule layer. Routing algorithm works here.
     category_caps = CapsuleLayer(num_capsule=n_class, dim_vector=16, num_routing=num_routing, name='category_caps')(primary_caps)
 
-    # Layer 4: This is an auxiliary layer to replace each capsule with its length. Just to match the true label's shape.
-    # If using tensorflow, this will not be necessary. :)
+    # Layer 5: This is an auxiliary layer to replace each capsule with its length. Just to match the true label's shape.
     out_caps = Length(name='out_caps')(category_caps)
 
-    # Decoder network.
-    y = layers.Input(shape=(n_class,))
-    masked = Mask()([category_caps, y])  # The true label is used to mask the output of capsule layer.
-    x_recon = layers.Dense(512, activation='relu')(masked)
-    x_recon = layers.Dense(1024, activation='relu')(x_recon)
-    x_recon = layers.Dense(max_len, activation='sigmoid')(x_recon)
-    # x_recon = layers.Reshape(target_shape=[1], name='out_recon')(x_recon)
-
-    # two-input-two-output keras Model
-    return models.Model([x, y], [out_caps, x_recon])
+    return models.Model(input=x, output=out_caps)

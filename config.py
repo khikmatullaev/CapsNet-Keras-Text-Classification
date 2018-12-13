@@ -16,6 +16,7 @@ flags.DEFINE_integer('epoch', 20, 'epoch')
 flags.DEFINE_integer('num_routing', 3, 'number of iterations in routing algorithm')
 flags.DEFINE_float('stddev', 0.01, 'stddev for W initializer')
 flags.DEFINE_float('regularization_scale', 0.392, 'regularization coefficient for reconstruction loss, default to 0.0005*784=0.392')
+flags.DEFINE_float('regularization_dropout', 0.5, '')
 
 ############################
 #   Datasets Parameters    #

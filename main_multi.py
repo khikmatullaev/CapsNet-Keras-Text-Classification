@@ -1,5 +1,6 @@
 import os
 import math
+from termcolor import colored
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -35,8 +36,10 @@ def margin_loss(y_true, y_pred):
     return K.mean(K.sum(L, 1))
 
 
-def train(model, data, save_directory, optimizer, epoch, batch_size, schedule):
-    X, Y = data
+def train(model, train, dev, test, save_directory, optimizer, epoch, batch_size, schedule):
+    (X_train, Y_train) = train
+    (X_dev, Y_dev) = dev
+    (X_test, Y_test) = test
 
     # Callbacks
     log = callbacks.CSVLogger(filename=save_directory + '/log.csv')
@@ -55,15 +58,19 @@ def train(model, data, save_directory, optimizer, epoch, batch_size, schedule):
                   loss=[margin_loss],
                   metrics=['accuracy'])
 
-    history = model.fit(x=X,
-              y=Y,
-              validation_split=0.02,
+    history = model.fit(x=X_train,
+              y=Y_train,
+              validation_data=[X_dev, Y_dev],
               batch_size=batch_size,
               epochs=epoch,
               callbacks=[log, tb, checkpoint, lr_decay],
               shuffle=True,
               verbose=1)
 
+    score = model.evaluate(X_test, Y_test, batch_size=batch_size)
+
+    print colored(save_directory, 'green')
+    print colored(score, 'green')
     print(history.history.keys())
 
     # Summarize history for accuracy
@@ -90,45 +97,57 @@ def train(model, data, save_directory, optimizer, epoch, batch_size, schedule):
 
 
 if __name__ == "__main__":
+    # Databases
+    databases = ["IMDB2"]
+
+    # Hyperparameters
+    optimizers = ['adam', 'nadam']
+    epochs = [10, 20]
+    batch_sizes = [200, 500]
+    schedules = [lambda1, lambda2, step_decay]
 
     save_dir = './multi'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    # Load data
-    (x_train, y_train), (x_test, y_test), max_len = load_data("polaritydata")
-
-    model = CapsNet(input_shape=x_train.shape[1:],
-        n_class=len(np.unique(np.argmax(y_train, 1))),
-        num_routing=3,
-        max_len=max_len
-    )
-
-    model.summary()
-    plot_model(model, to_file=save_dir+'/model.png', show_shapes=True)
-
-    # Hyperparameters
-    optimizers = ['adam', 'nadam', 'adadelta']
-    epochs = [30, 50]
-    batch_sizes = [200, 500]
-    schedules = [lambda1, lambda2, step_decay]
-
     # Train
-    for o in optimizers:
-        for e in epochs:
-            for bz in batch_sizes:
-                for s in schedules:
-                    folder = save_dir + "/o=" + o + ",e=" + str(e) + ",bz=" + str(bz) + ",s=" + s.__name__
+    for d in databases:
+        print(d)
 
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
+        (x_train, y_train), (x_dev, y_dev), (x_test, y_test), vocab_size, max_len = load_data(d)
 
-                    train(
-                        model=model,
-                        data=(x_train, y_train),
-                        save_directory=folder,
-                        optimizer=o,
-                        epoch=e,
-                        batch_size=bz,
-                        schedule=s
-                    )
+        for o in optimizers:
+            for e in epochs:
+                for bz in batch_sizes:
+                    for s in schedules:
+
+                        model = CapsNet(input_shape=x_train.shape[1:],
+                                        n_class=len(np.unique(np.argmax(y_train, 1))),
+                                        num_routing=3,
+                                        vocab_size=vocab_size,
+                                        embed_dim=50,
+                                        max_len=max_len
+                                        )
+
+                        model.summary()
+                        plot_model(model, to_file=save_dir + '/model.png', show_shapes=True)
+
+                        dir = save_dir + '/' + d
+                        if not os.path.exists(dir):
+                            os.makedirs(dir)
+
+                        folder = dir + "/o=" + o + ",e=" + str(e) + ",bz=" + str(bz) + ",s=" + s.__name__
+                        if not os.path.exists(folder):
+                            os.makedirs(folder)
+
+                        train(
+                            model=model,
+                            train=(x_train, y_train),
+                            dev=(x_dev, y_dev),
+                            test=(x_test, y_test),
+                            save_directory=folder,
+                            optimizer=o,
+                            epoch=e,
+                            batch_size=bz,
+                            schedule=s
+                        )
