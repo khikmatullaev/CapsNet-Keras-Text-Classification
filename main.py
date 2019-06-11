@@ -110,7 +110,7 @@ def train(model, train, dev, test, save_directory, optimizer, epoch, batch_size,
 
 if __name__ == "__main__":
 
-    database = "CR"
+    database = "ProcCons"
 
     if not os.path.exists(database):
         os.makedirs(database)
@@ -156,24 +156,3 @@ if __name__ == "__main__":
         batch_size=bz,
         schedule=s
     )
-
-    # Train
-    for o in optimizers:
-        for e in epochs:
-            for bz in batch_sizes:
-                for s in schedules:
-                    folder = database + "/o=" + o + ",e=" + str(e) + ",bz=" + str(bz) + ",s=" + s.__name__
-
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
-
-                    train(
-                        model=model,
-                        train=(x_train, y_train),
-                        test=(x_test, y_test),
-                        save_directory=folder,
-                        optimizer=o,
-                        epoch=e,
-                        batch_size=bz,
-                        schedule=s
-                    )

@@ -1,4 +1,3 @@
-import os
 import re
 import numpy as np
 from config import cfg
@@ -11,10 +10,8 @@ from mlxtend.preprocessing import one_hot
 def load_data(dataset, root="./datasets"):
     if dataset == 'IMDB':
         return load_imdb()
-    elif dataset == 'IMDB2':
-        return load_imdb2(root + '/IMDB2/IMDB2')
-    elif dataset == 'CR':
-        return load_cr(root + '/CR/CR/IntegratedPros.txt', root + '/CR/CR/IntegratedCons.txt')
+    elif dataset == 'ProcCons':
+        return load_pr(root + '/ProcCons/ProcCons/IntegratedPros.txt', root + '/ProcCons/ProcCons/IntegratedCons.txt')
     elif dataset == 'MR':
         return load_mr(root + '/MR/MR/rt-polarity.pos', root + '/MR/MR/rt-polarity.neg')
     elif dataset == 'SST-1':
@@ -41,10 +38,19 @@ def load_imdb():
     X = np.concatenate((np.array(x_train), np.array(x_test)))
     Y = np.concatenate((np.array(y_train), np.array(y_test)))
 
+    X_TRAIN = X[:len(X)*9/10]
+    Y_TRAIN = Y[:len(Y)*9/10]
+
+    X_DEV = X[len(X)*9/10:len(X)*95/100]
+    Y_DEV = Y[len(Y)*9/10:len(Y)*95/100]
+
+    X_TEST = X[len(X)*95/100:]
+    Y_TEST = Y[len(Y)*95/100:]
+
     vocab_size = cfg.max_features
     max_len = cfg.max_len
 
-    return (X[:len(X)*85/100], Y[:len(Y)*85/100]), (X[len(X)*85/100:], Y[len(Y)*85/100:]), vocab_size, max_len
+    return (X_TRAIN, Y_TRAIN), (X_DEV, Y_DEV), (X_TEST, Y_TEST), vocab_size, max_len
 
 
 def clean_str(string):
@@ -66,57 +72,7 @@ def clean_str(string):
     return string.strip().lower()
 
 
-def load_imdb2(folder):
-    x_text = list()
-    y_text = list()
-
-    for file in os.listdir(folder + '/test/pos'):
-        review_file = open(folder + '/test/pos/' + file, 'r')
-        x_text.append(clean_str(review_file.readline()))
-        y_text.append(1)
-        review_file.close()
-
-    for file in os.listdir(folder + '/test/neg'):
-        review_file = open(folder + '/test/neg/' + file, 'r')
-        x_text.append(clean_str(review_file.readline()))
-        y_text.append(0)
-        review_file.close()
-
-    for file in os.listdir(folder + '/train/pos'):
-        review_file = open(folder + '/train/pos/' + file, 'r')
-        x_text.append(clean_str(review_file.readline()))
-        y_text.append(1)
-        review_file.close()
-
-    for file in os.listdir(folder + '/train/neg'):
-        review_file = open(folder + '/train/neg/' + file, 'r')
-        x_text.append(clean_str(review_file.readline()))
-        y_text.append(0)
-        review_file.close()
-
-    x_text = [x[:100] for x in x_text]
-    Y = one_hot(y_text, dtype='int')
-
-    # Build vocabulary
-    max_document_length = max([len(x) for x in x_text])
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
-
-    X = np.array(list(vocab_processor.fit_transform(x_text)))
-    X = sequence.pad_sequences(X, maxlen=max_document_length, padding='post')
-
-    X_TRAIN = X[:len(X)*9/10]
-    Y_TRAIN = Y[:len(Y)*9/10]
-
-    X_DEV = X[len(X)*9/10:len(X)*95/100]
-    Y_DEV = Y[len(Y)*9/10:len(Y)*95/100]
-
-    X_TEST = X[len(X)*95/100:]
-    Y_TEST = Y[len(Y)*95/100:]
-
-    return (X_TRAIN, Y_TRAIN), (X_DEV, Y_DEV), (X_TEST, Y_TEST), len(vocab_processor.vocabulary_) + 1, max_document_length
-
-
-def load_cr(pos, neg):
+def load_pr(pos, neg):
     positive_examples = list(open(pos).readlines())
     positive_examples = [s.strip() for s in positive_examples]
     negative_examples = list(open(neg).readlines())

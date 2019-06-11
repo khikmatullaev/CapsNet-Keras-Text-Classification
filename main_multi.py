@@ -98,7 +98,7 @@ def train(model, train, dev, test, save_directory, optimizer, epoch, batch_size,
 
 if __name__ == "__main__":
     # Databases
-    databases = ["IMDB2"]
+    databases = ["MR", "SST-1", "SST-2", "SUBJ", "TREC", "ProcCons", "IMDB"]
 
     # Hyperparameters
     optimizers = ['adam', 'nadam']
